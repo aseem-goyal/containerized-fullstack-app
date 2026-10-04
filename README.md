@@ -31,4 +31,3 @@ Flask Backend API
   ▼
 Docker Containers
 ```
-Docker Containers
