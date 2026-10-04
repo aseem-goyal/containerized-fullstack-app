@@ -1,28 +1,35 @@
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
+
 @app.route("/")
-def helloworld():
-    html_content = """
-    <!doctype html>
-    <html>
-    <head>
-        <title>My First Flask Page</title>
-    </head>
-    <body>
-        <h1>Hello World!</h1>
-        <p>Welcome to my Flask web app.</p>
-    </body>
-    </html>
-    """
-    return render_template_string(html_content)
+def home():
+    return jsonify({
+        "message": "Flask Backend API is running",
+        "status": "success"
+    })
+
+
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "healthy"
+    })
+
 
 @app.route("/process", methods=["POST"])
 def process():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
+
     name = data.get("name", "Anonymous")
-    return jsonify({"message": f"Hello {name}! Data received successfully."})
+
+    return jsonify({
+        "message": f"Hello {name}!",
+        "status": "success",
+        "data_received": True
+    })
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
