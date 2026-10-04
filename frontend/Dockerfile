@@ -2,12 +2,17 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+ENV NODE_ENV=production
 
-RUN npm install
+COPY package.json package-lock.json ./
+
+RUN npm ci --omit=dev
 
 COPY server.js .
 
+# Run as non-root user
+USER node
+
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
