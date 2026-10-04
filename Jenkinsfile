@@ -15,6 +15,22 @@ pipeline {
             }
         }
 
+        stage('Run Tests') {
+            steps {
+                sh '''
+                    cd backend
+
+                    python3 -m venv venv
+                    . venv/bin/activate
+
+                    pip install --no-cache-dir -r requirements.txt
+                    pip install pytest
+
+                    pytest -v
+                '''
+            }
+        }
+
         stage('Build Docker Images') {
             steps {
                 sh 'docker compose build --no-cache'
@@ -33,14 +49,11 @@ pipeline {
                     echo "Checking running containers..."
                     docker compose ps
 
-                    echo "Checking backend health..."
-                    docker compose exec -T backend python -c \
-                    "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"
+                    echo "Checking backend..."
+                    curl -f http://localhost:5000/health
 
-                    echo "Checking frontend health..."
-                    docker compose exec -T frontend wget \
-                    --no-verbose --tries=1 --spider \
-                    http://localhost:3000/health
+                    echo "Checking frontend..."
+                    curl -f http://localhost:3000/health
 
                     echo "All services are healthy!"
                 '''
@@ -54,7 +67,7 @@ pipeline {
                     import urllib.request
                     response = urllib.request.urlopen('http://localhost:5000/')
                     assert response.status == 200
-                    print('Backend API test passed')
+                    print('Backend API integration test passed')
                     "
                 '''
             }
