@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_HOST = 'tcp://172.20.0.4:2376'
+        DOCKER_TLS_VERIFY = '1'
+        DOCKER_CERT_PATH = '/tmp/vfs-client-certs'
+    }
+
     stages {
 
         stage('Checkout') {
