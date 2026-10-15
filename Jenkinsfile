@@ -49,22 +49,25 @@ pipeline {
             }
         }
 
+        
         stage('Health Check') {
             steps {
                 sh '''
+                    set -e
                     echo "Checking running containers..."
                     docker compose ps
 
-                    echo "Checking backend..."
-                    curl -f http://localhost:5000/health
+                    echo "Checking backend health..."
+                    docker compose exec -T backend python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health', timeout=5).read().decode())"
 
-                    echo "Checking frontend..."
-                    curl -f http://localhost:3000/health
+                    echo "Checking frontend health..."
+                    docker compose exec -T frontend node -e 'fetch("http://localhost:3000/health").then(async r => { console.log("HTTP", r.status, await r.text()); if (!r.ok) process.exit(1); }).catch(e => { console.error(e); process.exit(1); })'
 
-                    echo "All services are healthy!"
+                    echo "All services are responding!"
                 '''
             }
         }
+
 
         stage('Integration Test') {
             steps {
