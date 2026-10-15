@@ -68,21 +68,28 @@ pipeline {
 
         stage('Integration Test') {
             steps {
+               ```groovy
                 sh '''
-                    docker compose exec -T backend python -c "
-                    import urllib.request
-                    response = urllib.request.urlopen('http://localhost:5000/')
-                    assert response.status == 200
-                    print('Backend API integration test passed')
-                    "
+                    set -e
+                    echo "Checking running containers..."
+                    docker compose ps
+
+                    echo "Waiting for backend health..."
+                    docker compose exec -T backend python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health', timeout=5).read().decode())"
+
+                    echo "Waiting for frontend health..."
+                    docker compose exec -T frontend node -e "fetch('http://localhost:3000/health').then(async r => { console.log('HTTP', r.status, await r.text()); if (!r.ok) process.exit(1); }).catch(e => { console.error(e); process.exit(1); })"
+
+                    echo "All services are responding!"
                 '''
+
             }
         }
     }
 
     post {
         always {
-            sh 'docker compose down -v || true'
+            sh 'docker compose down || true'
         }
 
         success {
