@@ -1,27 +1,85 @@
-FROM python:3.11-slim
+```groovy
+pipeline {
+    agent any
 
-WORKDIR /app
+    environment {
+        DOCKER_HOST = 'tcp://172.20.0.4:2376'
+        DOCKER_TLS_VERIFY = '1'
+        DOCKER_CERT_PATH = '/tmp/vfs-client-certs'
+    }
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
 
-COPY requirements.txt .
+        stage('Validate Configuration') {
+            steps {
+                sh 'docker compose config'
+            }
+        }
 
-RUN pip install --no-cache-dir -r requirements.txt
+        stage('Run Tests') {
+            steps {
+                dir('backend') {
+                    sh '''
+                        python3 -m venv venv
+                        . venv/bin/activate
+                        pip install --no-cache-dir -r requirements.txt
+                        pip install pytest
+                        pytest -v
+                    '''
+                }
+            }
+        }
 
-COPY app.py .
+        stage('Build Docker Images') {
+            steps {
+                sh 'docker compose build --no-cache'
+            }
+        }
 
-# Create a non-root user
-RUN useradd --create-home appuser
+        stage('Start Application') {
+            steps {
+                sh 'docker compose up -d'
+            }
+        }
 
-RUN chown -R appuser:appuser /app
+        stage('Health Check') {
+            steps {
+                sh '''
+                    set -e
+                    docker compose ps
+                    curl -f --retry 5 --retry-delay 2 http://localhost:5000/health
+                    curl -f --retry 5 --retry-delay 2 http://localhost:3000/health
+                    echo "All services are healthy!"
+                '''
+            }
+        }
 
-USER appuser
+        stage('Integration Test') {
+            steps {
+                sh '''
+                    docker compose exec -T backend python -c "import urllib.request; response = urllib.request.urlopen('http://localhost:5000/', timeout=5); assert response.status == 200; print('Backend integration test passed')"
+                '''
+            }
+        }
+    }
 
-EXPOSE 5000
+    post {
+        always {
+            sh 'docker compose down || true'
+        }
 
-# Container health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')" || exit 1
+        success {
+            echo 'CI pipeline completed successfully!'
+        }
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "app:app"]
+        failure {
+            echo 'CI pipeline failed. Check the logs above.'
+        }
+    }
+}
+```
