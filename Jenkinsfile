@@ -68,7 +68,6 @@ pipeline {
 
         stage('Integration Test') {
             steps {
-               ```groovy
                 sh '''
                     set -e
                     echo "Checking running containers..."
