@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HOST = 'tcp://172.20.0.4:2376'
+        DOCKER_HOST = 'tcp://172.20.0.3:2376'
         DOCKER_TLS_VERIFY = '1'
-        DOCKER_CERT_PATH = '/tmp/vfs-client-certs'
+        DOCKER_CERT_PATH = '/tmp/vfs-client-certs-new'
     }
 
     stages {
@@ -49,7 +49,7 @@ pipeline {
             }
         }
 
-        
+
         stage('Health Check') {
             steps {
                 sh '''
@@ -73,18 +73,9 @@ pipeline {
             steps {
                 sh '''
                     set -e
-                    echo "Checking running containers..."
-                    docker compose ps
-
-                    echo "Waiting for backend health..."
-                    docker compose exec -T backend python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health', timeout=5).read().decode())"
-
-                    echo "Waiting for frontend health..."
-                    docker compose exec -T frontend node -e "fetch('http://localhost:3000/health').then(async r => { console.log('HTTP', r.status, await r.text()); if (!r.ok) process.exit(1); }).catch(e => { console.error(e); process.exit(1); })"
-
-                    echo "All services are responding!"
+                    echo "Testing backend API response..."
+                    docker compose exec -T backend python -c "import json, urllib.request; response = urllib.request.urlopen('http://localhost:5000/', timeout=5); data = json.loads(response.read()); assert response.status == 200; assert data['status'] == 'success'; print('Backend API integration test passed:', data)"
                 '''
-
             }
         }
     }
